@@ -1,0 +1,6 @@
+{
+  "name": "StockPulse Multi-Branch Inventory",
+  "description": "Multi-branch stock management app with real-time catalog, branch-isolated inventory, atomic sale transactions, restock alerts, and Android client support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

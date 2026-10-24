@@ -1,0 +1,198 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isBusinessOwner() {
+      return isSignedIn() && (
+        request.auth.token.email == 'dash93188@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         getUserDoc().role == 'owner')
+      );
+    }
+
+    function hasBranchAccess(branchId) {
+      return isBusinessOwner() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (branchId in getUserDoc().assignedBranchIds)
+      );
+    }
+
+    function isManagerForBranch(branchId) {
+      return isBusinessOwner() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserDoc().role == 'manager' &&
+        (branchId in getUserDoc().assignedBranchIds)
+      );
+    }
+
+    // --- Entity Validators ---
+
+    function isValidBusiness(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.ownerId is string && data.ownerId.size() > 0 && data.ownerId.size() <= 128 &&
+             data.createdAt is string && data.updatedAt is string;
+    }
+
+    function isValidBranch(data) {
+      return data.businessId is string && data.businessId.size() > 0 && data.businessId.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.code is string && data.code.size() > 0 && data.code.size() <= 20 &&
+             data.createdAt is string && data.updatedAt is string;
+    }
+
+    function isValidUserProfile(data) {
+      return data.businessId is string && data.businessId.size() > 0 && data.businessId.size() <= 128 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 120 &&
+             data.role in ['owner', 'manager', 'staff'] &&
+             data.assignedBranchIds is list && data.assignedBranchIds.size() <= 100 &&
+             data.createdAt is string && data.updatedAt is string;
+    }
+
+    function isValidCatalogItem(data) {
+      return data.businessId is string && data.businessId.size() > 0 && data.businessId.size() <= 128 &&
+             data.partNumber is string && data.partNumber.size() > 0 && data.partNumber.size() <= 60 &&
+             data.partNumber.matches('^[a-zA-Z0-9_\\-\\.]+$') &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
+             data.status in ['active', 'archived'] &&
+             data.createdAt is string && data.updatedAt is string;
+    }
+
+    function isValidBranchInventory(data) {
+      return data.businessId is string && data.businessId.size() > 0 && data.businessId.size() <= 128 &&
+             data.branchId is string && data.branchId.size() > 0 && data.branchId.size() <= 128 &&
+             data.itemId is string && data.itemId.size() > 0 && data.itemId.size() <= 128 &&
+             data.partNumber is string && data.partNumber.size() > 0 && data.partNumber.size() <= 60 &&
+             data.itemName is string && data.itemName.size() > 0 && data.itemName.size() <= 150 &&
+             data.quantity is number && data.quantity >= 0 &&
+             data.minQuantity is number && data.minQuantity >= 0 &&
+             data.status in ['IN_STOCK', 'LOW_STOCK', 'OUT_OF_STOCK'] &&
+             data.updatedAt is string;
+    }
+
+    function isValidStockTransaction(data) {
+      return data.idempotencyKey is string && data.idempotencyKey.size() > 0 && data.idempotencyKey.size() <= 128 &&
+             data.businessId is string && data.businessId.size() > 0 && data.businessId.size() <= 128 &&
+             data.branchId is string && data.branchId.size() > 0 && data.branchId.size() <= 128 &&
+             data.itemId is string && data.itemId.size() > 0 && data.itemId.size() <= 128 &&
+             data.type in ['SALE', 'RESTOCK', 'ADJUSTMENT', 'REVERSAL'] &&
+             data.quantityChange is number &&
+             data.previousQuantity is number && data.previousQuantity >= 0 &&
+             data.resultingQuantity is number && data.resultingQuantity >= 0 &&
+             data.userId == request.auth.uid &&
+             data.timestamp is string;
+    }
+
+    function isValidAlertRecord(data) {
+      return data.businessId is string && data.businessId.size() > 0 && data.businessId.size() <= 128 &&
+             data.branchId is string && data.branchId.size() > 0 && data.branchId.size() <= 128 &&
+             data.branchName is string && data.branchName.size() <= 100 &&
+             data.itemId is string && data.itemId.size() <= 128 &&
+             data.partNumber is string && data.partNumber.size() <= 60 &&
+             data.itemName is string && data.itemName.size() <= 150 &&
+             data.alertType in ['LOW_STOCK', 'OUT_OF_STOCK'] &&
+             data.currentStock is number &&
+             data.minRequired is number &&
+             data.message is string && data.message.size() <= 300 &&
+             data.acknowledged is bool &&
+             data.createdAt is string;
+    }
+
+    function isValidDeviceToken(data) {
+      return data.businessId is string && data.businessId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.token is string && data.token.size() > 0 && data.token.size() <= 256 &&
+             data.platform is string && data.platform.size() <= 30 &&
+             data.updatedAt is string;
+    }
+
+    // --- Collections ---
+
+    match /businesses/{businessId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(businessId) && isValidBusiness(incoming()) && incoming().ownerId == request.auth.uid;
+      allow update: if isBusinessOwner() && isValidBusiness(incoming()) && incoming().ownerId == existing().ownerId;
+      allow delete: if false; // Business destruction disallowed via client
+    }
+
+    match /branches/{branchId} {
+      allow read: if isSignedIn();
+      allow create, update: if isBusinessOwner() && isValidId(branchId) && isValidBranch(incoming());
+      allow delete: if isBusinessOwner();
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isBusinessOwner());
+      allow create: if isSignedIn() && isValidId(userId) && isValidUserProfile(incoming()) && (request.auth.uid == userId || isBusinessOwner());
+      allow update: if isSignedIn() && isValidUserProfile(incoming()) && (
+        isBusinessOwner() ||
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt']))
+      );
+      allow delete: if isBusinessOwner();
+    }
+
+    match /items/{itemId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(itemId) && isValidCatalogItem(incoming()) &&
+                       (isBusinessOwner() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserDoc().role == 'manager'));
+      allow update: if isSignedIn() && isValidCatalogItem(incoming()) && incoming().businessId == existing().businessId &&
+                       (isBusinessOwner() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserDoc().role == 'manager'));
+      allow delete: if false; // Central items must be archived, not deleted
+    }
+
+    match /branch_inventory/{inventoryId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(inventoryId) && isValidBranchInventory(incoming()) && hasBranchAccess(incoming().branchId);
+      allow update: if isSignedIn() && isValidBranchInventory(incoming()) && hasBranchAccess(incoming().branchId) &&
+                       incoming().branchId == existing().branchId && incoming().itemId == existing().itemId;
+      allow delete: if isBusinessOwner();
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(transactionId) && isValidStockTransaction(incoming()) && hasBranchAccess(incoming().branchId);
+      allow update, delete: if false; // Ledger is strictly immutable
+    }
+
+    match /alerts/{alertId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(alertId) && isValidAlertRecord(incoming()) && hasBranchAccess(incoming().branchId);
+      allow update: if isSignedIn() && isValidAlertRecord(incoming()) && hasBranchAccess(incoming().branchId) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['acknowledged']);
+      allow delete: if isBusinessOwner();
+    }
+
+    match /device_tokens/{tokenId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isBusinessOwner());
+      allow create, update: if isSignedIn() && isValidId(tokenId) && isValidDeviceToken(incoming());
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isBusinessOwner());
+    }
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "entities": {
+    "Business": {
+      "title": "Business",
+      "description": "Multi-branch organization entity",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["name", "ownerId", "createdAt", "updatedAt"]
+    },
+    "Branch": {
+      "title": "Branch",
+      "description": "Physical shop or store location under a business",
+      "type": "object",
+      "properties": {
+        "businessId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "code": { "type": "string", "maxLength": 20 },
+        "location": { "type": "string", "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["businessId", "name", "code", "createdAt", "updatedAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account and branch assignment with role",
+      "type": "object",
+      "properties": {
+        "businessId": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 120 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["owner", "manager", "staff"] },
+        "assignedBranchIds": { "type": "array" },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["businessId", "email", "role", "assignedBranchIds", "createdAt", "updatedAt"]
+    },
+    "CatalogItem": {
+      "title": "CatalogItem",
+      "description": "Central catalog item with unique part number across business",
+      "type": "object",
+      "properties": {
+        "businessId": { "type": "string", "maxLength": 128 },
+        "partNumber": { "type": "string", "maxLength": 60, "pattern": "^[a-zA-Z0-9_\\-\\.]+$" },
+        "name": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 500 },
+        "category": { "type": "string", "maxLength": 80 },
+        "unitPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["businessId", "partNumber", "name", "status", "createdAt", "updatedAt"]
+    },
+    "BranchInventory": {
+      "title": "BranchInventory",
+      "description": "Branch-specific stock level and thresholds for an item",
+      "type": "object",
+      "properties": {
+        "businessId": { "type": "string", "maxLength": 128 },
+        "branchId": { "type": "string", "maxLength": 128 },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "partNumber": { "type": "string", "maxLength": 60 },
+        "itemName": { "type": "string", "maxLength": 150 },
+        "quantity": { "type": "number" },
+        "minQuantity": { "type": "number" },
+        "restockTarget": { "type": "number" },
+        "status": { "type": "string", "enum": ["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"] },
+        "lastAlertState": { "type": "string", "enum": ["NONE", "LOW_STOCK", "OUT_OF_STOCK"] },
+        "lastAlertAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["businessId", "branchId", "itemId", "partNumber", "itemName", "quantity", "minQuantity", "status", "updatedAt"]
+    },
+    "StockTransaction": {
+      "title": "StockTransaction",
+      "description": "Immutable ledger record of sales, restocking, adjustments, and reversals",
+      "type": "object",
+      "properties": {
+        "idempotencyKey": { "type": "string", "maxLength": 128 },
+        "businessId": { "type": "string", "maxLength": 128 },
+        "branchId": { "type": "string", "maxLength": 128 },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "partNumber": { "type": "string", "maxLength": 60 },
+        "itemName": { "type": "string", "maxLength": 150 },
+        "type": { "type": "string", "enum": ["SALE", "RESTOCK", "ADJUSTMENT", "REVERSAL"] },
+        "quantityChange": { "type": "number" },
+        "previousQuantity": { "type": "number" },
+        "resultingQuantity": { "type": "number" },
+        "reason": { "type": "string", "maxLength": 100 },
+        "notes": { "type": "string", "maxLength": 300 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 120 },
+        "timestamp": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["idempotencyKey", "businessId", "branchId", "itemId", "type", "quantityChange", "previousQuantity", "resultingQuantity", "userId", "timestamp"]
+    },
+    "AlertRecord": {
+      "title": "AlertRecord",
+      "description": "Stock shortage alert created idempotently when threshold crossed",
+      "type": "object",
+      "properties": {
+        "businessId": { "type": "string", "maxLength": 128 },
+        "branchId": { "type": "string", "maxLength": 128 },
+        "branchName": { "type": "string", "maxLength": 100 },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "partNumber": { "type": "string", "maxLength": 60 },
+        "itemName": { "type": "string", "maxLength": 150 },
+        "alertType": { "type": "string", "enum": ["LOW_STOCK", "OUT_OF_STOCK"] },
+        "currentStock": { "type": "number" },
+        "minRequired": { "type": "number" },
+        "message": { "type": "string", "maxLength": 300 },
+        "acknowledged": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["businessId", "branchId", "branchName", "itemId", "partNumber", "itemName", "alertType", "currentStock", "minRequired", "message", "acknowledged", "createdAt"]
+    },
+    "DeviceToken": {
+      "title": "DeviceToken",
+      "description": "FCM registration token for real push notifications",
+      "type": "object",
+      "properties": {
+        "businessId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "token": { "type": "string", "maxLength": 256 },
+        "deviceModel": { "type": "string", "maxLength": 100 },
+        "platform": { "type": "string", "maxLength": 30 },
+        "subscribedBranchIds": { "type": "array" },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["businessId", "userId", "token", "platform", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/businesses/{businessId}": {
+      "schema": { "$ref": "Business" },
+      "description": "Business organizations"
+    },
+    "/branches/{branchId}": {
+      "schema": { "$ref": "Branch" },
+      "description": "Individual branch stores"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "UserProfile" },
+      "description": "User profiles with role and branch permissions"
+    },
+    "/items/{itemId}": {
+      "schema": { "$ref": "CatalogItem" },
+      "description": "Central catalog items"
+    },
+    "/branch_inventory/{inventoryId}": {
+      "schema": { "$ref": "BranchInventory" },
+      "description": "Stock count and thresholds isolated by branch"
+    },
+    "/transactions/{transactionId}": {
+      "schema": { "$ref": "StockTransaction" },
+      "description": "Immutable ledger of stock sales, restocks, adjustments"
+    },
+    "/alerts/{alertId}": {
+      "schema": { "$ref": "AlertRecord" },
+      "description": "Stock shortage alert records"
+    },
+    "/device_tokens/{tokenId}": {
+      "schema": { "$ref": "DeviceToken" },
+      "description": "Registered FCM tokens for push notification delivery"
+    }
+  }
+}
